@@ -59,24 +59,23 @@ export class TSFile {
 
   public replaceModifiers = (fileContent: string): string =>
   {
-    fileContent = fileContent.replaceAll("this.__", "this.");
-    fileContent = fileContent.replaceAll("this._", "this.");
     const regex = /constructor\(((.|\n|\r|\s)*?)\)/g;
     let constructorResult = fileContent.match(regex);
     if(constructorResult)
     {
       let constructorString = constructorResult.toString();
-      constructorString = constructorString.replaceAll("__", "private ");
-      constructorString = constructorString.replaceAll("_", "protected ");
-
-      fileContent = fileContent.replace(regex, constructorString);
+      constructorString = constructorString.toString().replaceAll("__", "private __").toString();
+      constructorString = constructorString.toString().replaceAll("(_", "(protected _").toString();
+      constructorString = constructorString.toString().replaceAll(/, _(?=[^_])/g, ", protected _").toString();
+      constructorString=constructorString.toString();
+      fileContent = fileContent.toString().replace(regex, constructorString.toString()).toString();
     }
     return fileContent;
   }
   
 
   public generateImports = (fileContent: string): string =>{
-    let regex = /define((.|\r\n)*)\r\n\) \{/g;
+    let regex = /define\(((.|\r|\n|s)*?)\) {/g;
     let defineRegexResult = fileContent.match(regex);
     if(defineRegexResult)
     {
@@ -113,7 +112,7 @@ export class TSFile {
   };
 
   public removeDefines = (fileContent: string): string =>{
-    let regex = /define((.|\r\n)*)\r\n\) \{/g;
+    let regex = /define\(((.|\r|\n|s)*?)\) {/g;
     let defineRegexResult = fileContent.replace(regex, '');
     if(defineRegexResult.substring(defineRegexResult.length - 3) == "});" )
     {
