@@ -153,6 +153,13 @@ const generateImports = async () => {
   }
 }
 
+const generateModifiers = async () => {
+  if (window.activeTextEditor) {
+    const tsFile = new TSFile(window.activeTextEditor.document, true);
+    await tsFile.replaceModifiersInTsFile();
+  }
+}
+
 const trySwitch = async(pick: string) => {
   switch (pick) {
     case 'Current file':
@@ -170,6 +177,9 @@ const trySwitch = async(pick: string) => {
     case 'Generate imports':
       await generateImports();
       break;
+    case 'Access modifiers':
+      await generateModifiers();
+      break;
   }
 }
 
@@ -185,6 +195,7 @@ export function activate(context: ExtensionContext) {
         'Directory: CoffeeScript to TypeScript',
         'Directory: CoffeeScript to JavaScript',
         'Generate imports',
+        'Access modifiers'
       ]);
 
       await trySwitch(pick ?? "");
