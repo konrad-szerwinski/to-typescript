@@ -9,10 +9,10 @@ export class TSFile {
   private project: Project;
   private sourceFile: SourceFile;
 
-  constructor (document: TextDocument) {
+  constructor (document: TextDocument, overwrite: boolean=false) {
     this.adapter = tsAdapterFor(document);
     this.project = new Project();
-    this.sourceFile = this.buildSourceFile();
+    this.sourceFile = this.buildSourceFile(overwrite);
   }
 
   public getFileUri(): Uri {
@@ -28,10 +28,81 @@ export class TSFile {
       fixes.getChanges().forEach((change: FileTextChanges) => change.applyChanges({ overwrite: true }));
     });
 
+    
     return this.sourceFile.save();
   }
 
-  private buildSourceFile(): SourceFile {
+  public generateImportsInTsFile(){
+    this.project.createSourceFile(
+      this.adapter.getFileName(),
+      this.regenerateContent(this.adapter.getFileContent()), { overwrite: true }
+    )
+    return this.sourceFile.save();
+  }
+  
+  public regenerateContent = (fileContent: string): string =>
+  {
+    fileContent=this.generateImports(fileContent)+fileContent;
+    fileContent=this.removeDefines(fileContent);
+
+    return fileContent;
+  }
+
+  public generateImports = (fileContent: string): string =>{
+    let regex = /define((.|\r\n)*)\r\n\) \{/g;
+    let defineRegexResult = fileContent.match(regex);
+    if(defineRegexResult)
+    {
+      var defineString = defineRegexResult.toString();
+      let lines=defineString.split('\n')
+      lines.shift();
+      lines.pop();
+      let index=Math.floor(lines.length/2);
+  
+      lines.splice(index, 1);
+      index=Math.floor(lines.length/2);
+  
+      let imports=[];
+  
+      regex = /^.*?(?=:)/g;
+      for(let i=0; i<index; i++)
+      {
+          imports.push("import " +lines[index+i].match(regex)?.toString().trim().replace(',', '')+" from "+lines[i].trim().replace(',', '').replaceAll('"', "'")+";");
+      }
+      imports.sort(function (a, b) {
+          function getRaw(s: string) {
+              return s.replace("{ ", '');
+          }
+      
+          return getRaw(a).localeCompare(getRaw(b));
+      });
+
+      let finalString  = imports.join('\r\n')+'\r\n';
+
+      return finalString;
+    }
+    else
+      return '';
+  };
+  public removeDefines = (fileContent: string): string =>{
+    let regex = /define((.|\r\n)*)\r\n\) \{/g;
+    let defineRegexResult = fileContent.replace(regex, '');
+    if(defineRegexResult.substring(defineRegexResult.length - 3) == "});" )
+    {
+      defineRegexResult = defineRegexResult.slice(0, -3)
+    }
+
+    return defineRegexResult;
+  };
+
+  private buildSourceFile(overwrite: boolean): SourceFile {
+    if(overwrite)
+    {
+      return this.project.createSourceFile(
+        this.adapter.getFileName(),
+        this.adapter.getFileContent(), {overwrite: true}
+      );
+    }
     return this.project.createSourceFile(
       this.adapter.getFileName(),
       this.adapter.getFileContent()

@@ -122,9 +122,11 @@ const coffeeToJs = async (path: string) => {
 
     const jsFile = new CoffeeToJsAdapter(dupa);
 
+    let jsFileContent = jsFile.getFileContent();
+
     const newFile = new Project().createSourceFile(
       jsFile.getFileName(),
-      jsFile.getFileContent()
+      jsFileContent
     );
     newFile.save();
 
@@ -138,6 +140,18 @@ const coffeeToJs = async (path: string) => {
     coffeeToJs(`${path}/${nested}`);
   });
 };
+
+const generateImports = async () => {
+  if (window.activeTextEditor) {
+    const tsFile = new TSFile(window.activeTextEditor.document, true);
+    await tsFile.generateImportsInTsFile();
+    // return commands.executeCommand(
+    //   'vscode.open',
+    //   tsFile.getFileUri(),
+    //   ViewColumn.Beside
+    // );
+  }
+}
 
 const trySwitch = async(pick: string) => {
   switch (pick) {
@@ -153,6 +167,9 @@ const trySwitch = async(pick: string) => {
     case 'Directory: CoffeeScript to JavaScript':
       await coffeeToJs(await getSourcesDir());
       break;
+    case 'Generate imports':
+      await generateImports();
+      break;
   }
 }
 
@@ -167,6 +184,7 @@ export function activate(context: ExtensionContext) {
         'Directory: JavaScript to TypeScript',
         'Directory: CoffeeScript to TypeScript',
         'Directory: CoffeeScript to JavaScript',
+        'Generate imports',
       ]);
 
       await trySwitch(pick ?? "");
