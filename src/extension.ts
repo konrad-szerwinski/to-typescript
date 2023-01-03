@@ -160,6 +160,13 @@ const generateModifiers = async () => {
   }
 }
 
+const removebind = async () => {
+  if (window.activeTextEditor) {
+    const tsFile = new TSFile(window.activeTextEditor.document, true);
+    await tsFile.removeBindDecorator();
+  }
+}
+
 const trySwitch = async(pick: string) => {
   switch (pick) {
     case 'Current file':
@@ -180,8 +187,46 @@ const trySwitch = async(pick: string) => {
     case 'Access modifiers':
       await generateModifiers();
       break;
+    case 'Remove bind-decorator':
+      await removebind();
+      break;
+    case 'Directory: Remove bind-decorator':
+      await removebindD(await getSourcesDir());
+      break;
   }
 }
+
+const removebindD = async (path: string) => {
+  if (isFile(path)) {
+    if (!path.endsWith('.ts')) return;
+
+    console.log(`Removing bind-decorator ${path}`);
+    logger.appendLine(`Removing bind-decorator ${path}`);
+
+    const openedFile = await workspace.openTextDocument(Uri.file(path));
+    console.log('file loaded');
+    try {
+      
+      const tsFile = new TSFile(openedFile, true);
+      console.log(`Converting ${path}`);
+
+      await tsFile.removeBindDecorator();
+
+      console.log(`Removed successfully ${tsFile.getFileUri()}`);
+      counterOfFiles++;
+    } catch {
+      console.log('failed removing bind in file', path);
+      notFormatedFiles.push(path);
+    }
+
+    return;
+  }
+
+  const dir = fs.readdirSync(path);
+  dir.map((nested) => {
+    removebindD(`${path}/${nested}`);
+  });
+};
 
 export function activate(context: ExtensionContext) {
   context.subscriptions.push(
@@ -195,7 +240,9 @@ export function activate(context: ExtensionContext) {
         'Directory: CoffeeScript to TypeScript',
         'Directory: CoffeeScript to JavaScript',
         'Generate imports',
-        'Access modifiers'
+        'Access modifiers',
+        'Remove bind-decorator',
+        'Directory: Remove bind-decorator'
       ]);
 
       await trySwitch(pick ?? "");

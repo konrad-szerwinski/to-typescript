@@ -47,7 +47,98 @@ export class TSFile {
     )
     return this.sourceFile.save();
   }
+
+  public removeBindDecorator()
+  {
+    this.project.createSourceFile(
+      this.adapter.getFileName(),
+      this.removeBindDecoratorFromFile(this.adapter.getFileContent()), { overwrite: true }
+    )
+    return this.sourceFile.save();
+  }
   
+  public removeBindDecoratorFromFile = (fileContent: string): string =>
+  {
+    if(fileContent.includes('import bind from \'bind-decorator\''))
+    {
+      const regex = /@bind((.|\n|\r|\s)*?)(?=\()/g;
+      let bindedMethods = fileContent.match(regex);
+      let nativeBinds: string='\n';
+      if(bindedMethods)
+      {
+        bindedMethods.forEach(element => {
+          let methodName = element.replace('@bind', '').trim();
+          methodName = methodName.replace('private ', '');
+          methodName = methodName.replace('protected ', '').trim();
+          //this.finish = this.finish.bind(this);`Converting ${path}`
+          nativeBinds+= `\t\tthis.${methodName} = this.${methodName}.bind(this);\n`;
+        });
+
+
+        const regex = /constructor\(((.|\n|\r|\s)*?)\)/g;
+        let constructorResult = fileContent.match(regex);
+
+        let insertIndex=0;
+        if(constructorResult)
+        {
+          console.log("jest constructor");
+          if(fileContent.includes('super();'))
+          {
+            console.log("jest super");
+            insertIndex = fileContent.indexOf('super();') + "super();".length;
+            fileContent = fileContent.slice(0, insertIndex) + nativeBinds + fileContent.slice(insertIndex);
+          }
+          else
+          {
+            const r = /constructor\(((.|\n|\r|\s)*?)\).{/g;
+            let match = r.exec(fileContent);
+            if (match) {
+              insertIndex = fileContent.indexOf('constructor(') + match[0].toString().length;
+              fileContent = fileContent.slice(0, insertIndex) + nativeBinds + fileContent.slice(insertIndex);
+            }
+            else
+            {
+              //nie znalazł contructora ??
+              return fileContent;
+            }
+          }
+        }
+        else
+        {
+          // nie ma constructora
+          const regexClass = /\nclass((.|\n|\r|\s)*?){/g;
+          let match = regexClass.exec(fileContent);
+          if (match) {
+            let constructorString ='';
+
+            if(match[0].toString().includes('extends'))
+            {
+              console.log("jest extends");
+              constructorString = `\n\tconstructor(){\n\t\tsuper();${nativeBinds}\t}\n`;
+            }  
+            else
+              constructorString = `\n\tconstructor(){${nativeBinds}\t}\n`;
+
+            insertIndex = match.index + match[0].toString().length;
+            fileContent = fileContent.slice(0, insertIndex) + constructorString + fileContent.slice(insertIndex);
+          }
+          else
+          {
+            //nie znalazł class ??
+            return fileContent;
+          }
+            
+          // let match = str.match(/[abc]/gi);
+          // let firstIndex = str.indexOf(match[0]);
+        }
+
+        fileContent = fileContent.replaceAll('@bind', '');
+        fileContent = fileContent.replace('import bind from \'bind-decorator\';\r\n', '');
+      }
+
+    }
+    return fileContent;
+  }
   
   public regenerateContent = (fileContent: string): string =>
   {
